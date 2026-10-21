@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} · Connect Four{% endblock %}
+
+{% block content %}
+<section class="hero error-page">
+  <div class="error-discs">
+    <span class="disc red"></span><span class="disc yellow"></span><span class="disc red"></span>
+    <span class="error-gap"></span>
+  </div>
+  <p class="eyebrow">Error {{ code }}</p>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <div class="cta">
+    <a class="btn primary big" href="{{ url_for('home') }}" style="text-decoration:none">Back to the game</a>
+  </div>
+</section>
+{% endblock %}

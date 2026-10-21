@@ -1,8 +1,10 @@
+import logging
 import os
 import threading
 import uuid
 
 from flask import Flask, jsonify, render_template, request, session
+from werkzeug.exceptions import HTTPException
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -97,13 +99,21 @@ def join():
                     game["seats"][color] = bid
                     game["version"] += 1
                     break
+            else:
+                return jsonify(error="Both seats are taken. You can still watch the game."), 409
         return jsonify(state_for(bid))
 
 
 @app.route("/api/move", methods=["POST"])
 def move():
     bid = browser_id()
-    col = (request.get_json(silent=True) or {}).get("col")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "col" not in data:
+        return jsonify(error='Send your move as JSON, like {"col": 3}.'), 400
+    col = data["col"]
+    # bool is a subclass of int, so rule it out explicitly.
+    if type(col) is not int or not 0 <= col < COLS:
+        return jsonify(error=f"Column must be a whole number from 0 to {COLS - 1}."), 400
     with lock:
         player = player_for(bid)
         if player is None:
@@ -114,8 +124,6 @@ def move():
             return jsonify(error="Waiting for a second player."), 400
         if game["turn"] != player:
             return jsonify(error="It's not your turn."), 400
-        if not isinstance(col, int) or not 0 <= col < COLS:
-            return jsonify(error="Invalid column."), 400
 
         board = game["board"]
         row = next((r for r in range(ROWS - 1, -1, -1) if board[r][col] is None), None)
@@ -164,5 +172,35 @@ def leave():
         return jsonify(state_for(bid))
 
 
+def wants_json():
+    return request.path.startswith("/api/")
+
+
+@app.errorhandler(HTTPException)
+def handle_http_error(e):
+    """404s, wrong methods, bad requests: a friendly message, never a traceback."""
+    messages = {
+        400: "That request didn't make sense to the server.",
+        404: "That page doesn't exist.",
+        405: f"{request.method} isn't allowed here.",
+    }
+    message = messages.get(e.code, e.description)
+    if wants_json():
+        return jsonify(error=message), e.code
+    return render_template("error.html", code=e.code, title=e.name, message=message), e.code
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    """Anything we didn't plan for: log the details, show the player a plain message."""
+    app.logger.exception("Unhandled error on %s %s", request.method, request.path)
+    message = "Something went wrong on our end. Please try again."
+    if wants_json():
+        return jsonify(error=message), 500
+    return render_template("error.html", code=500, title="Server error", message=message), 500
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    logging.basicConfig(level=logging.INFO)
+    # Debug mode shows tracebacks in the browser, so it's off unless FLASK_DEBUG=1.
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1", port=5001)

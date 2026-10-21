@@ -3,6 +3,7 @@
 {% block content %}
 <div class="game">
   <section>
+    <div id="offline" class="banner" hidden>⚠️ Can't reach the game server. Retrying…</div>
     <div id="status" class="status">Loading…</div>
     <div class="board-wrap">
       <div id="board" class="board" style="grid-template-columns: repeat({{ cols }}, 1fr)">
@@ -60,10 +61,24 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     };
-    const res = await fetch(path, opts);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    let res;
+    try {
+      res = await fetch(path, { ...opts, signal: AbortSignal.timeout(8000) });
+    } catch (e) {
+      throw new OfflineError("Can't reach the game server. Check your connection and try again.");
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* not JSON, e.g. a proxy error page */ }
+    if (!res.ok || !data) {
+      throw new Error(data?.error || `The server had a problem (error ${res.status}). Please try again.`);
+    }
     return data;
+  }
+
+  class OfflineError extends Error {}
+
+  function setOffline(offline) {
+    document.getElementById("offline").hidden = !offline;
   }
 
   function render(s) {
@@ -130,15 +145,23 @@
   async function poll() {
     try {
       const s = await api("/api/state");
+      setOffline(false);
       if (!state || s.version !== state.version || s.you !== state.you) render(s);
-    } catch (e) { /* server briefly unavailable; try again next tick */ }
+    } catch (e) {
+      setOffline(e instanceof OfflineError);
+      if (!state) document.getElementById("status").textContent = "Couldn't load the game. Retrying…";
+    }
   }
 
   async function act(path, body = {}) {
     const errEl = document.getElementById("error");
     errEl.textContent = "";
-    try { render(await api(path, body)); }
-    catch (e) { errEl.textContent = e.message; }
+    try {
+      render(await api(path, body));
+      setOffline(false);
+    } catch (e) {
+      errEl.textContent = e.message;
+    }
   }
 
   boardEl.addEventListener("click", (e) => {
