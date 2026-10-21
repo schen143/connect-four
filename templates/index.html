@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect Four</title>
+  <style>
+    :root {
+      --board: #1f4fbf;
+      --hole: #f4f6fb;
+      --red: #e23b3b;
+      --yellow: #f5c518;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f6fb;
+      color: #1d1d1f;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    main { width: 100%; max-width: 560px; }
+    h1 { margin: 0 0 4px; }
+    #status { font-size: 1.1rem; min-height: 1.6em; margin: 8px 0 16px; }
+    #you { color: #555; margin: 0; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat({{ cols }}, 1fr);
+      gap: 8px;
+      padding: 12px;
+      background: var(--board);
+      border-radius: 14px;
+    }
+    .cell {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--hole);
+      border: none;
+      padding: 0;
+      cursor: default;
+      transition: background 0.15s;
+    }
+    .board.my-turn .cell { cursor: pointer; }
+    .board.my-turn .col-hover.empty { background: #d5dcef; }
+    .cell.red { background: var(--red); }
+    .cell.yellow { background: var(--yellow); }
+    .cell.win { box-shadow: 0 0 0 4px #fff inset; }
+    .cell.last { outline: 3px solid rgba(255, 255, 255, 0.7); outline-offset: -6px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+    button.action {
+      font: inherit;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #c7cbd6;
+      background: #fff;
+      cursor: pointer;
+    }
+    button.action.primary { background: var(--board); color: #fff; border-color: var(--board); }
+    button.action[hidden] { display: none; }
+    #error { color: #b00020; min-height: 1.2em; }
+    #moves { padding-left: 1.5em; max-height: 220px; overflow-y: auto; margin: 4px 0; }
+    .dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
+    .dot.red { background: var(--red); }
+    .dot.yellow { background: var(--yellow); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connect Four</h1>
+  <p id="you"></p>
+  <div id="status">Loading…</div>
+
+  <div id="board" class="board">
+    {% for r in range(rows) %}
+      {% for c in range(cols) %}
+        <button class="cell empty" data-row="{{ r }}" data-col="{{ c }}" aria-label="Column {{ c + 1 }}"></button>
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div id="error"></div>
+  <div class="controls">
+    <button id="join" class="action primary" hidden>Join game</button>
+    <button id="reset" class="action" hidden>New game</button>
+    <button id="leave" class="action" hidden>Leave seat</button>
+  </div>
+
+  <h3>Moves</h3>
+  <ol id="moves"></ol>
+</main>
+
+<script>
+  const COLS = {{ cols }};
+  const boardEl = document.getElementById("board");
+  const cells = [...boardEl.querySelectorAll(".cell")];
+  let state = null;
+
+  const name = (color) => color[0].toUpperCase() + color.slice(1);
+
+  async function api(path, body) {
+    const opts = body === undefined ? {} : {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    };
+    const res = await fetch(path, opts);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    return data;
+  }
+
+  function render(s) {
+    state = s;
+    const ready = s.seats.red && s.seats.yellow;
+    const myTurn = s.you && ready && !s.winner && s.turn === s.you;
+    const last = s.moves[s.moves.length - 1];
+    const winSet = new Set(s.winning_cells.map(([r, c]) => `${r},${c}`));
+
+    cells.forEach((cell) => {
+      const r = +cell.dataset.row, c = +cell.dataset.col;
+      const v = s.board[r][c];
+      cell.classList.remove("red", "yellow", "empty", "win", "last");
+      cell.classList.add(v || "empty");
+      if (winSet.has(`${r},${c}`)) cell.classList.add("win");
+      if (last && last.row === r && last.col === c) cell.classList.add("last");
+    });
+    boardEl.classList.toggle("my-turn", !!myTurn);
+
+    document.getElementById("you").innerHTML = s.you
+      ? `You are <span class="dot ${s.you}"></span><strong>${name(s.you)}</strong>`
+      : "You are watching.";
+
+    let status;
+    if (s.winner === "draw") status = "It's a draw!";
+    else if (s.winner) status = s.winner === s.you ? "You win! 🎉" : `${name(s.winner)} wins!`;
+    else if (!ready) status = "Waiting for two players to join…";
+    else if (myTurn) status = "Your turn — click a column.";
+    else status = `${name(s.turn)}'s turn.`;
+    document.getElementById("status").textContent = status;
+
+    const openSeat = !s.seats.red || !s.seats.yellow;
+    document.getElementById("join").hidden = !!s.you || !openSeat;
+    document.getElementById("reset").hidden = !s.you;
+    document.getElementById("leave").hidden = !s.you;
+
+    document.getElementById("moves").innerHTML = s.moves
+      .map((m) => `<li><span class="dot ${m.player}"></span>${name(m.player)} → column ${m.col + 1}</li>`)
+      .join("");
+  }
+
+  async function poll() {
+    try {
+      const s = await api("/api/state");
+      if (!state || s.version !== state.version || s.you !== state.you) render(s);
+    } catch (e) { /* server briefly unavailable; try again next tick */ }
+  }
+
+  async function act(path, body = {}) {
+    const errEl = document.getElementById("error");
+    errEl.textContent = "";
+    try { render(await api(path, body)); }
+    catch (e) { errEl.textContent = e.message; }
+  }
+
+  boardEl.addEventListener("click", (e) => {
+    const cell = e.target.closest(".cell");
+    if (cell) act("/api/move", { col: +cell.dataset.col });
+  });
+  boardEl.addEventListener("mouseover", (e) => {
+    const cell = e.target.closest(".cell");
+    cells.forEach((c) => c.classList.toggle("col-hover", !!cell && c.dataset.col === cell.dataset.col));
+  });
+  boardEl.addEventListener("mouseleave", () => cells.forEach((c) => c.classList.remove("col-hover")));
+
+  document.getElementById("join").addEventListener("click", () => act("/api/join"));
+  document.getElementById("reset").addEventListener("click", () => act("/api/reset"));
+  document.getElementById("leave").addEventListener("click", () => act("/api/leave"));
+
+  poll();
+  setInterval(poll, 1000);
+</script>
+</body>
+</html>
