@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}How to Play · Connect Four{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">How to Play</p>
+  <h1>Get <span class="hl-red">four</span> in a <span class="hl-yellow">row</span>.</h1>
+  <p>Connect Four is a two-player game on a 7-column, 6-row board. Take turns dropping
+    discs and be the first to line up four of your own.</p>
+</section>
+
+<h2 class="section-title">Getting started</h2>
+<div class="steps">
+  <div class="card step">
+    <h3>Open two browsers</h3>
+    <p>Each player opens the Play page in their own browser, or one regular window and one private window.</p>
+  </div>
+  <div class="card step">
+    <h3>Join the game</h3>
+    <p>Click <strong>Join game</strong>. The first player to join is Red, the second is Yellow. Anyone else can watch.</p>
+  </div>
+  <div class="card step">
+    <h3>Take turns</h3>
+    <p>Red goes first. On your turn, click any column and your disc falls to the lowest empty spot.</p>
+  </div>
+  <div class="card step">
+    <h3>Connect four</h3>
+    <p>The first to line up four discs wins. If the board fills up with no winner, it's a draw.</p>
+  </div>
+</div>
+
+<h2 class="section-title">Ways to win</h2>
+<div class="wins">
+  <div class="card win-card">
+    <div class="mini-board">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span class="y"></span><span class="y"></span><span></span>
+      <span class="r"></span><span class="r"></span><span class="r"></span><span class="r"></span><span class="y"></span>
+    </div>
+    <h3>Horizontal</h3>
+    <p>Four side by side in a row.</p>
+  </div>
+  <div class="card win-card">
+    <div class="mini-board">
+      <span></span><span></span><span class="y"></span><span></span><span></span>
+      <span></span><span class="r"></span><span class="y"></span><span></span><span></span>
+      <span></span><span class="r"></span><span class="y"></span><span></span><span></span>
+      <span></span><span class="r"></span><span class="y"></span><span class="r"></span><span></span>
+    </div>
+    <h3>Vertical</h3>
+    <p>Four stacked in one column.</p>
+  </div>
+  <div class="card win-card">
+    <div class="mini-board">
+      <span></span><span></span><span></span><span class="r"></span><span></span>
+      <span></span><span></span><span class="r"></span><span class="y"></span><span></span>
+      <span></span><span class="r"></span><span class="y"></span><span class="y"></span><span></span>
+      <span class="r"></span><span class="y"></span><span class="r"></span><span class="y"></span><span></span>
+    </div>
+    <h3>Diagonal</h3>
+    <p>Four on a slant, either direction.</p>
+  </div>
+</div>
+
+<h2 class="section-title">Tips</h2>
+<div class="card tips">
+  <div class="tip">
+    <span class="icon">🎯</span>
+    <div><strong>Take the center</strong><span>The middle column is part of the most possible lines of four.</span></div>
+  </div>
+  <div class="tip">
+    <span class="icon">🛡️</span>
+    <div><strong>Block early</strong><span>If your opponent has three in a line with an open end, block it now.</span></div>
+  </div>
+  <div class="tip">
+    <span class="icon">🔱</span>
+    <div><strong>Set up double threats</strong><span>Make two winning spots at once. Your opponent can only block one.</span></div>
+  </div>
+  <div class="tip">
+    <span class="icon">🔄</span>
+    <div><strong>Play again</strong><span>Click <strong>New game</strong> to clear the board. Both players keep their colors.</span></div>
+  </div>
+</div>
+
+<div class="cta">
+  <a class="btn primary big" href="{{ url_for('home') }}" style="text-decoration:none">Start playing →</a>
+</div>
+{% endblock %}

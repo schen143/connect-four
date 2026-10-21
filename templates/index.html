@@ -1,98 +1,53 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connect Four</title>
-  <style>
-    :root {
-      --board: #1f4fbf;
-      --hole: #f4f6fb;
-      --red: #e23b3b;
-      --yellow: #f5c518;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f4f6fb;
-      color: #1d1d1f;
-      display: flex;
-      justify-content: center;
-      padding: 24px 16px;
-    }
-    main { width: 100%; max-width: 560px; }
-    h1 { margin: 0 0 4px; }
-    #status { font-size: 1.1rem; min-height: 1.6em; margin: 8px 0 16px; }
-    #you { color: #555; margin: 0; }
-    .board {
-      display: grid;
-      grid-template-columns: repeat({{ cols }}, 1fr);
-      gap: 8px;
-      padding: 12px;
-      background: var(--board);
-      border-radius: 14px;
-    }
-    .cell {
-      aspect-ratio: 1;
-      border-radius: 50%;
-      background: var(--hole);
-      border: none;
-      padding: 0;
-      cursor: default;
-      transition: background 0.15s;
-    }
-    .board.my-turn .cell { cursor: pointer; }
-    .board.my-turn .col-hover.empty { background: #d5dcef; }
-    .cell.red { background: var(--red); }
-    .cell.yellow { background: var(--yellow); }
-    .cell.win { box-shadow: 0 0 0 4px #fff inset; }
-    .cell.last { outline: 3px solid rgba(255, 255, 255, 0.7); outline-offset: -6px; }
-    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
-    button.action {
-      font: inherit;
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: 1px solid #c7cbd6;
-      background: #fff;
-      cursor: pointer;
-    }
-    button.action.primary { background: var(--board); color: #fff; border-color: var(--board); }
-    button.action[hidden] { display: none; }
-    #error { color: #b00020; min-height: 1.2em; }
-    #moves { padding-left: 1.5em; max-height: 220px; overflow-y: auto; margin: 4px 0; }
-    .dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
-    .dot.red { background: var(--red); }
-    .dot.yellow { background: var(--yellow); }
-  </style>
-</head>
-<body>
-<main>
-  <h1>Connect Four</h1>
-  <p id="you"></p>
-  <div id="status">Loading…</div>
+{% extends "base.html" %}
 
-  <div id="board" class="board">
-    {% for r in range(rows) %}
-      {% for c in range(cols) %}
-        <button class="cell empty" data-row="{{ r }}" data-col="{{ c }}" aria-label="Column {{ c + 1 }}"></button>
-      {% endfor %}
-    {% endfor %}
-  </div>
+{% block content %}
+<div class="game">
+  <section>
+    <div id="status" class="status">Loading…</div>
+    <div class="board-wrap">
+      <div id="board" class="board" style="grid-template-columns: repeat({{ cols }}, 1fr)">
+        {% for r in range(rows) %}
+          {% for c in range(cols) %}
+            <button class="cell empty" data-row="{{ r }}" data-col="{{ c }}" aria-label="Column {{ c + 1 }}"></button>
+          {% endfor %}
+        {% endfor %}
+      </div>
+      <div class="board-stand"></div>
+    </div>
+  </section>
 
-  <div id="error"></div>
-  <div class="controls">
-    <button id="join" class="action primary" hidden>Join game</button>
-    <button id="reset" class="action" hidden>New game</button>
-    <button id="leave" class="action" hidden>Leave seat</button>
-  </div>
+  <aside class="sidebar">
+    <div class="card">
+      <p class="eyebrow">Players</p>
+      <div class="players">
+        <div id="player-red" class="player red">
+          <span class="disc red"></span>
+          <div><div class="name">Red</div><div class="sub">Open seat</div></div>
+        </div>
+        <div id="player-yellow" class="player yellow">
+          <span class="disc yellow"></span>
+          <div><div class="name">Yellow</div><div class="sub">Open seat</div></div>
+        </div>
+      </div>
+    </div>
 
-  <h3>Moves</h3>
-  <ol id="moves"></ol>
-</main>
+    <div class="controls">
+      <button id="join" class="btn primary big" hidden>Join game</button>
+      <button id="reset" class="btn" hidden>New game</button>
+      <button id="leave" class="btn" hidden>Leave seat</button>
+    </div>
+    <p id="error" class="error"></p>
 
+    <div class="card">
+      <h3>Moves</h3>
+      <ol id="moves" class="moves"></ol>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-  const COLS = {{ cols }};
   const boardEl = document.getElementById("board");
   const cells = [...boardEl.querySelectorAll(".cell")];
   let state = null;
@@ -112,7 +67,10 @@
   }
 
   function render(s) {
+    // Only animate when exactly one new move arrived (not on first load or reset).
+    const isNewMove = state && s.moves.length === state.moves.length + 1;
     state = s;
+
     const ready = s.seats.red && s.seats.yellow;
     const myTurn = s.you && ready && !s.winner && s.turn === s.you;
     const last = s.moves[s.moves.length - 1];
@@ -121,33 +79,52 @@
     cells.forEach((cell) => {
       const r = +cell.dataset.row, c = +cell.dataset.col;
       const v = s.board[r][c];
-      cell.classList.remove("red", "yellow", "empty", "win", "last");
-      cell.classList.add(v || "empty");
-      if (winSet.has(`${r},${c}`)) cell.classList.add("win");
-      if (last && last.row === r && last.col === c) cell.classList.add("last");
+      const isLast = last && last.row === r && last.col === c;
+      cell.classList.toggle("empty", !v);
+      cell.classList.toggle("win", winSet.has(`${r},${c}`));
+      cell.classList.toggle("last", !!isLast);
+
+      const disc = cell.querySelector(".disc");
+      if (!v) { if (disc) disc.remove(); return; }
+      if (disc && disc.classList.contains(v)) return;
+      if (disc) disc.remove();
+      const d = document.createElement("span");
+      d.className = `disc ${v}`;
+      if (isLast && isNewMove) {
+        d.style.setProperty("--row", r);
+        d.classList.add("drop");
+      }
+      cell.appendChild(d);
     });
     boardEl.classList.toggle("my-turn", !!myTurn);
 
-    document.getElementById("you").innerHTML = s.you
-      ? `You are <span class="dot ${s.you}"></span><strong>${name(s.you)}</strong>`
-      : "You are watching.";
+    const statusEl = document.getElementById("status");
+    let text, color = null;
+    if (s.winner === "draw") text = "It's a draw!";
+    else if (s.winner) { text = s.winner === s.you ? "You win! 🎉" : `${name(s.winner)} wins!`; color = s.winner; }
+    else if (!ready) text = "Waiting for two players…";
+    else { text = myTurn ? "Your turn — pick a column" : `${name(s.turn)}'s turn`; color = s.turn; }
+    statusEl.className = "status" + (color ? ` turn-${color}` : "") + (s.winner && s.winner !== "draw" ? " win" : "");
+    statusEl.innerHTML = (color ? `<span class="disc ${color}"></span>` : "") + text;
 
-    let status;
-    if (s.winner === "draw") status = "It's a draw!";
-    else if (s.winner) status = s.winner === s.you ? "You win! 🎉" : `${name(s.winner)} wins!`;
-    else if (!ready) status = "Waiting for two players to join…";
-    else if (myTurn) status = "Your turn — click a column.";
-    else status = `${name(s.turn)}'s turn.`;
-    document.getElementById("status").textContent = status;
+    for (const color of ["red", "yellow"]) {
+      const el = document.getElementById(`player-${color}`);
+      el.classList.toggle("active", ready && !s.winner && s.turn === color);
+      el.querySelector(".sub").textContent = s.seats[color] ? "Ready" : "Open seat";
+      el.querySelector(".tag")?.remove();
+      if (s.you === color) el.insertAdjacentHTML("beforeend", `<span class="tag">You</span>`);
+    }
 
     const openSeat = !s.seats.red || !s.seats.yellow;
     document.getElementById("join").hidden = !!s.you || !openSeat;
     document.getElementById("reset").hidden = !s.you;
     document.getElementById("leave").hidden = !s.you;
 
-    document.getElementById("moves").innerHTML = s.moves
-      .map((m) => `<li><span class="dot ${m.player}"></span>${name(m.player)} → column ${m.col + 1}</li>`)
-      .join("");
+    const movesEl = document.getElementById("moves");
+    movesEl.innerHTML = s.moves.length
+      ? s.moves.map((m, i) => `<li><span class="num">${i + 1}.</span><span class="disc ${m.player}"></span>${name(m.player)} → column ${m.col + 1}</li>`).join("")
+      : `<li class="empty-note">No moves yet.</li>`;
+    movesEl.scrollTop = movesEl.scrollHeight;
   }
 
   async function poll() {
@@ -181,5 +158,4 @@
   poll();
   setInterval(poll, 1000);
 </script>
-</body>
-</html>
+{% endblock %}

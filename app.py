@@ -75,6 +75,11 @@ def home():
     return render_template("index.html", rows=ROWS, cols=COLS)
 
 
+@app.route("/instructions")
+def instructions():
+    return render_template("instructions.html")
+
+
 @app.route("/api/state")
 def get_state():
     bid = browser_id()

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Connect Four{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="{{ url_for('home') }}">
+      <span class="brand-discs"><span class="disc red"></span><span class="disc yellow"></span></span>
+      Connect Four
+    </a>
+    <div class="nav-links">
+      <a href="{{ url_for('home') }}" class="{{ 'active' if request.endpoint == 'home' }}">Play</a>
+      <a href="{{ url_for('instructions') }}" class="{{ 'active' if request.endpoint == 'instructions' }}">How to Play</a>
+    </div>
+  </nav>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">Drop. Stack. Connect four.</footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
